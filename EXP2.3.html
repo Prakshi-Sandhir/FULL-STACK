@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>SVG Drawing Tool</title>
+<style>
+  :root { --bg:#0f172a; --panel:#111827; --accent:#8b5cf6; --text:#e5e7eb; --muted:#9ca3af; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:linear-gradient(135deg,#111827,#0b1022); font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial; color:var(--text); height:100vh; display:grid; grid-template-rows:auto 1fr; }
+  header { display:flex; gap:12px; align-items:center; padding:14px 16px; background:linear-gradient(90deg, rgba(139,92,246,.2), rgba(59,130,246,.15)); border-bottom:1px solid rgba(255,255,255,.08); position:sticky; top:0; z-index:10; backdrop-filter: blur(6px); }
+  header h1 { font-size:18px; font-weight:700; margin:0 6px 0 0; letter-spacing:.3px; }
+  .toolbar { display:flex; flex-wrap:wrap; gap:10px; align-items:center; }
+  .group { display:flex; align-items:center; gap:8px; padding:6px 8px; background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.08); border-radius:12px; }
+  .btn { appearance:none; border:1px solid rgba(255,255,255,.12); background:#111827; color:var(--text); padding:8px 10px; border-radius:10px; cursor:pointer; font-weight:600; font-size:13px; transition:.15s ease; display:inline-flex; align-items:center; gap:8px; }
+  .btn[aria-pressed="true"], .btn:hover { border-color:var(--accent); color:white; box-shadow:0 0 0 3px rgba(139,92,246,.25) inset; }
+  .btn.icon { width:38px; height:38px; justify-content:center; padding:0; }
+  .sep { width:1px; height:28px; background:rgba(255,255,255,.12); margin:0 4px; }
+  input[type="color"] { width:42px; height:32px; border:1px solid rgba(255,255,255,.12); border-radius:8px; background:#111827; padding:0; }
+  input[type="range"] { accent-color: var(--accent); height:6px; }
+  label { font-size:12px; color:var(--muted); }
+  .canvas-wrap { position:relative; background:radial-gradient(1200px 600px at 20% -10%, rgba(139,92,246,.15), transparent 60%), radial-gradient(800px 500px at 120% 120%, rgba(59,130,246,.18), transparent 60%), #0b1220; border-top:1px solid rgba(255,255,255,.06); }
+  svg { width:100%; height:calc(100vh - 78px); display:block; background: repeating-conic-gradient(from 0deg, rgba(255,255,255,.03) 0deg 10deg, transparent 10deg 20deg), linear-gradient(180deg, rgba(255,255,255,.02), transparent 120px); }
+  .ghost { stroke-dasharray:6 4; pointer-events:none; }
+  .hud { position:absolute; right:12px; bottom:12px; background:rgba(17,24,39,.8); backdrop-filter: blur(8px); border:1px solid rgba(255,255,255,.08); padding:8px 10px; border-radius:10px; font-size:12px; color:var(--muted); }
+</style>
+</head>
+<body>
+  <header>
+    <h1>SVG Drawing Tool</h1>
+    <div class="toolbar">
+      <div class="group" id="tools">
+        <button class="btn icon" data-tool="pen" aria-pressed="true" title="Freehand">✏️</button>
+        <button class="btn icon" data-tool="line" aria-pressed="false" title="Line">／</button>
+        <button class="btn icon" data-tool="rect" aria-pressed="false" title="Rectangle">▭</button>
+        <button class="btn icon" data-tool="circle" aria-pressed="false" title="Circle">◯</button>
+      </div>
+      <div class="group">
+        <label>Stroke</label>
+        <input type="color" id="stroke" value="#8b5cf6" />
+        <label>Fill</label>
+        <input type="color" id="fill" value="#00000000" />
+        <label>Width</label>
+        <input type="range" id="width" min="1" max="24" value="3" />
+      </div>
+      <div class="group">
+        <button class="btn" id="undo" title="Undo">Undo</button>
+        <button class="btn" id="clear" title="Clear">Clear</button>
+        <div class="sep"></div>
+        <button class="btn" id="saveSvg" title="Download SVG">Download SVG</button>
+        <button class="btn" id="savePng" title="Download PNG">Download PNG</button>
+      </div>
+    </div>
+  </header>
+  <div class="canvas-wrap">
+    <svg id="board" xmlns="http://www.w3.org/2000/svg"></svg>
+    <div class="hud" id="hud">0 shapes</div>
+  </div>
+<script>
+  const svg = document.getElementById('board');
+  const tools = document.getElementById('tools');
+  const stroke = document.getElementById('stroke');
+  const fill = document.getElementById('fill');
+  const width = document.getElementById('width');
+  const undoBtn = document.getElementById('undo');
+  const clearBtn = document.getElementById('clear');
+  const saveSvgBtn = document.getElementById('saveSvg');
+  const savePngBtn = document.getElementById('savePng');
+  const hud = document.getElementById('hud');
+
+  let state = { tool: 'pen', drawing: false, start: null, currentEl: null, points: [] };
+
+  function setViewBox() {
+    const r = svg.getBoundingClientRect();
+    svg.setAttribute('viewBox', `0 0 ${Math.round(r.width)} ${Math.round(r.height)}`);
+  }
+  setViewBox();
+  window.addEventListener('resize', setViewBox);
+
+  tools.addEventListener('click', (e)=>{
+    const b = e.target.closest('button[data-tool]');
+    if (!b) return;
+    state.tool = b.dataset.tool;
+    tools.querySelectorAll('button').forEach(x=>x.setAttribute('aria-pressed','false'));
+    b.setAttribute('aria-pressed','true');
+  });
+
+  function svgPoint(evt){
+    const pt = svg.createSVGPoint();
+    pt.x = (evt.touches? evt.touches[0].clientX : evt.clientX);
+    pt.y = (evt.touches? evt.touches[0].clientY : evt.clientY);
+    const ctm = svg.getScreenCTM().inverse();
+    const {x,y} = pt.matrixTransform(ctm);
+    return {x, y};
+  }
+
+  function updateHud(){ hud.textContent = `${svg.querySelectorAll('path, line, rect, circle').length} shapes`; }
+
+  function startDraw(evt){
+    evt.preventDefault();
+    state.drawing = true;
+    const {x,y} = svgPoint(evt);
+    state.start = {x,y};
+    const s = stroke.value; const f = fill.value; const w = width.value;
+    if (state.tool==='pen'){
+      state.points = [`M ${x} ${y}`];
+      const p = document.createElementNS('http://www.w3.org/2000/svg','path');
+      p.setAttribute('d', state.points.join(' '));
+      p.setAttribute('fill','none');
+      p.setAttribute('stroke', s);
+      p.setAttribute('stroke-linecap','round');
+      p.setAttribute('stroke-linejoin','round');
+      p.setAttribute('stroke-width', w);
+      svg.appendChild(p);
+      state.currentEl = p;
+    } else if (state.tool==='line'){
+      const l = document.createElementNS('http://www.w3.org/2000/svg','line');
+      l.setAttribute('x1', x); l.setAttribute('y1', y); l.setAttribute('x2', x); l.setAttribute('y2', y);
+      l.setAttribute('stroke', s); l.setAttribute('stroke-width', w);
+      l.setAttribute('class','ghost');
+      svg.appendChild(l);
+      state.currentEl = l;
+    } else if (state.tool==='rect'){
+      const r = document.createElementNS('http://www.w3.org/2000/svg','rect');
+      r.setAttribute('x', x); r.setAttribute('y', y); r.setAttribute('width', 0); r.setAttribute('height', 0);
+      r.setAttribute('stroke', s); r.setAttribute('stroke-width', w); r.setAttribute('fill', f);
+      r.setAttribute('class','ghost');
+      svg.appendChild(r);
+      state.currentEl = r;
+    } else if (state.tool==='circle'){
+      const c = document.createElementNS('http://www.w3.org/2000/svg','circle');
+      c.setAttribute('cx', x); c.setAttribute('cy', y); c.setAttribute('r', 0);
+      c.setAttribute('stroke', s); c.setAttribute('stroke-width', w); c.setAttribute('fill', f);
+      c.setAttribute('class','ghost');
+      svg.appendChild(c);
+      state.currentEl = c;
+    }
+  }
+
+  function draw(evt){
+    if (!state.drawing || !state.currentEl) return;
+    const {x,y} = svgPoint(evt);
+    const s = state.start;
+    if (state.tool==='pen'){
+      state.points.push(`L ${x} ${y}`);
+      state.currentEl.setAttribute('d', state.points.join(' '));
+    } else if (state.tool==='line'){
+      state.currentEl.setAttribute('x2', x);
+      state.currentEl.setAttribute('y2', y);
+    } else if (state.tool==='rect'){
+      const rx = Math.min(x, s.x), ry = Math.min(y, s.y);
+      const rw = Math.abs(x - s.x), rh = Math.abs(y - s.y);
+      state.currentEl.setAttribute('x', rx);
+      state.currentEl.setAttribute('y', ry);
+      state.currentEl.setAttribute('width', rw);
+      state.currentEl.setAttribute('height', rh);
+    } else if (state.tool==='circle'){
+      const r = Math.hypot(x - s.x, y - s.y);
+      state.currentEl.setAttribute('r', r);
+    }
+  }
+
+  function endDraw(){
+    if (!state.drawing) return;
+    if (state.currentEl){ state.currentEl.classList.remove('ghost'); }
+    state.drawing = false; state.currentEl = null; state.points = []; state.start = null; updateHud();
+  }
+
+  svg.addEventListener('mousedown', startDraw);
+  svg.addEventListener('mousemove', draw);
+  window.addEventListener('mouseup', endDraw);
+  svg.addEventListener('touchstart', startDraw, {passive:false});
+  svg.addEventListener('touchmove', draw, {passive:false});
+  svg.addEventListener('touchend', endDraw);
+
+  undoBtn.addEventListener('click', ()=>{ const nodes = svg.querySelectorAll('path, line, rect, circle'); if (nodes.length) nodes[nodes.length-1].remove(); updateHud(); });
+  clearBtn.addEventListener('click', ()=>{ svg.innerHTML=''; updateHud(); });
+
+  function download(filename, text){ const a = document.createElement('a'); a.href = text; a.download = filename; document.body.appendChild(a); a.click(); a.remove(); }
+
+  saveSvgBtn.addEventListener('click', ()=>{
+    const clone = svg.cloneNode(true);
+    clone.removeAttribute('style');
+    const w = svg.viewBox.baseVal.width || svg.clientWidth;
+    const h = svg.viewBox.baseVal.height || svg.clientHeight;
+    clone.setAttribute('xmlns','http://www.w3.org/2000/svg');
+    clone.setAttribute('viewBox', `0 0 ${w} ${h}`);
+    const blob = new Blob([`<?xml version="1.0" encoding="UTF-8"?>\n` + clone.outerHTML], {type:'image/svg+xml'});
+    const url = URL.createObjectURL(blob);
+    download('drawing.svg', url);
+    setTimeout(()=>URL.revokeObjectURL(url), 1000);
+  });
+
+  savePngBtn.addEventListener('click', ()=>{
+    const serializer = new XMLSerializer();
+    const w = svg.viewBox.baseVal.width || svg.clientWidth;
+    const h = svg.viewBox.baseVal.height || svg.clientHeight;
+    const data = `<?xml version="1.0" encoding="UTF-8"?>\n<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 ${w} ${h}\">${svg.innerHTML}</svg>`;
+    const img = new Image();
+    const svgBlob = new Blob([data], {type:'image/svg+xml;charset=utf-8'});
+    const url = URL.createObjectURL(svgBlob);
+    img.onload = function(){
+      const canvas = document.createElement('canvas');
+      canvas.width = w; canvas.height = h;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0);
+      const png = canvas.toDataURL('image/png');
+      download('drawing.png', png);
+      URL.revokeObjectURL(url);
+    };
+    img.src = url;
+  });
+
+  updateHud();
+</script>
+</body>
+</html>

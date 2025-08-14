@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Dynamic Product Filter</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      padding: 20px;
+      background: linear-gradient(135deg, #ffecd2, #fcb69f);
+      color: #333;
+    }
+    h2 {
+      text-align: center;
+      color: #fff;
+      text-shadow: 1px 1px 4px rgba(0,0,0,0.2);
+      margin-bottom: 20px;
+    }
+    .filter-box {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+    select {
+      padding: 10px 15px;
+      font-size: 16px;
+      border-radius: 25px;
+      border: none;
+      outline: none;
+      background: #fff;
+      box-shadow: 0 3px 8px rgba(0,0,0,0.15);
+      transition: transform 0.2s ease;
+      cursor: pointer;
+    }
+    select:hover {
+      transform: scale(1.05);
+    }
+    .products {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 20px;
+    }
+    .product {
+      background: #fff;
+      padding: 15px;
+      border-radius: 15px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+      width: 180px;
+      text-align: center;
+      transition: transform 0.3s ease, box-shadow 0.3s ease;
+    }
+    .product:hover {
+      transform: translateY(-8px);
+      box-shadow: 0 8px 20px rgba(0,0,0,0.2);
+    }
+    .product img {
+      width: 100%;
+      height: 120px;
+      object-fit: cover;
+      border-radius: 10px;
+    }
+    .product h4 {
+      margin: 10px 0 5px;
+      font-size: 17px;
+      color: #444;
+    }
+    .product p {
+      margin: 0;
+      font-weight: bold;
+      font-size: 15px;
+      color: #ff6584;
+    }
+    .icon {
+      font-size: 18px;
+      margin-right: 5px;
+      color: #6c63ff;
+    }
+  </style>
+  <link rel="stylesheet"
+        href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+</head>
+<body>
+
+  <h2><i class="fas fa-store"></i> Dynamic Product Filter</h2>
+  <div class="filter-box">
+    <label for="sort" style="color:#fff; font-size:16px;">
+      <i class="fas fa-filter"></i> Sort by:
+    </label>
+    <select id="sort">
+      <option value="default">Default</option>
+      <option value="low-high">💰 Price: Low to High</option>
+      <option value="high-low">💰 Price: High to Low</option>
+      <option value="name-asc">🔤 Name: A to Z</option>
+      <option value="name-desc">🔤 Name: Z to A</option>
+    </select>
+  </div>
+
+  <div class="products" id="productList">
+    <!-- Apple -->
+    <div class="product" data-price="20" data-name="Apple">
+      <img src="https://images.unsplash.com/photo-1567306226416-28f0efdc88ce?w=400" alt="Apple">
+      <h4><i class="fas fa-apple-alt icon"></i>Apple</h4>
+      <p>$20</p>
+    </div>
+    <!-- Banana -->
+    <div class="product" data-price="10" data-name="Banana">
+      <img src="https://images.unsplash.com/photo-1574226516831-e1dff420e43e?w=400" alt="Banana">
+      <h4><i class="fas fa-lemon icon"></i>Banana</h4>
+      <p>$10</p>
+    </div>
+    <!-- Cherry -->
+    <div class="product" data-price="30" data-name="Cherry">
+      <img src="https://images.unsplash.com/photo-1615485737454-1e6e04f8d8c0?w=400" alt="Cherry">
+      <h4><i class="fas fa-seedling icon"></i>Cherry</h4>
+      <p>$30</p>
+    </div>
+    <!-- Orange -->
+    <div class="product" data-price="15" data-name="Orange">
+      <img src="https://images.unsplash.com/photos/photo-of-three-orange-fruits-acrBf9BlfvE?w=400" alt="Orange">
+      <h4><i class="fas fa-circle icon"></i>Orange</h4>
+      <p>$15</p>
+    </div>
+    <!-- Grapes -->
+    <div class="product" data-price="25" data-name="Grapes">
+      <img src="https://images.unsplash.com/photo-1571047399553-5130b2a9b957?w=400" alt="Grapes">
+      <h4><i class="fas fa-grapes icon"></i>Grapes</h4>
+      <p>$25</p>
+    </div>
+  </div>
+
+  <script>
+    const sortSelect = document.getElementById('sort');
+    const productList = document.getElementById('productList');
+
+    sortSelect.addEventListener('change', () => {
+      const sortValue = sortSelect.value;
+      const products = Array.from(productList.children);
+
+      products.sort((a, b) => {
+        const priceA = parseFloat(a.getAttribute('data-price'));
+        const priceB = parseFloat(b.getAttribute('data-price'));
+        const nameA = a.getAttribute('data-name').toLowerCase();
+        const nameB = b.getAttribute('data-name').toLowerCase();
+
+        if (sortValue === 'low-high') return priceA - priceB;
+        if (sortValue === 'high-low') return priceB - priceA;
+        if (sortValue === 'name-asc') return nameA.localeCompare(nameB);
+        if (sortValue === 'name-desc') return nameB.localeCompare(nameA);
+        return 0;
+      });
+
+      productList.innerHTML = '';
+      products.forEach(prod => productList.appendChild(prod));
+    });
+  </script>
+
+</body>
+</html>
