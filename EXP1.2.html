@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Banking UI</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f6f8;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            width: 100%;
+            max-width: 350px;
+            text-align: center;
+        }
+        h2 {
+            margin-bottom: 15px;
+        }
+        .balance {
+            font-size: 1.8em;
+            margin-bottom: 20px;
+            color: #2c3e50;
+        }
+        input {
+            width: 100%;
+            padding: 10px;
+            margin: 10px 0;
+            font-size: 1em;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+        }
+        .btn-container {
+            display: flex;
+            gap: 10px;
+        }
+        button {
+            flex: 1;
+            padding: 10px;
+            font-size: 1em;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+        .deposit {
+            background-color: #27ae60;
+            color: white;
+        }
+        .withdraw {
+            background-color: #e74c3c;
+            color: white;
+        }
+        button:hover {
+            opacity: 0.9;
+        }
+        @media (max-width: 400px) {
+            .container {
+                padding: 15px;
+            }
+            .balance {
+                font-size: 1.5em;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>Bank Account</h2>
+        <div class="balance">Balance: $<span id="balance">1000</span></div>
+        <input type="number" id="amount" placeholder="Enter amount" min="1">
+        <div class="btn-container">
+            <button class="deposit" onclick="deposit()">Deposit</button>
+            <button class="withdraw" onclick="withdraw()">Withdraw</button>
+        </div>
+    </div>
+
+    <script>
+        let balance = 1000;
+        const balanceDisplay = document.getElementById('balance');
+        const amountInput = document.getElementById('amount');
+
+        function deposit() {
+            const amount = parseFloat(amountInput.value);
+            if (amount > 0) {
+                balance += amount;
+                balanceDisplay.textContent = balance.toFixed(2);
+                amountInput.value = '';
+            }
+        }
+
+        function withdraw() {
+            const amount = parseFloat(amountInput.value);
+            if (amount > 0 && amount <= balance) {
+                balance -= amount;
+                balanceDisplay.textContent = balance.toFixed(2);
+                amountInput.value = '';
+            }
+        }
+    </script>
+</body>
+</html>
